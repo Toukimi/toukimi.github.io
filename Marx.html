@@ -4,14 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>交互式题库</title>
-    <!-- 引入 Vue 3 -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <!-- 引入 Tailwind CSS (样式库) -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 Marked (Markdown解析) -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
-    <!-- 引入你的数据文件 -->
+<!-- 引入你的数据文件 -->
     <script>
         window.QUESTION_DATA = [
   {
@@ -12619,7 +12616,6 @@
     </script>
 
     <style>
-        /* 自定义蒙版样式 */
         .mask-box {
             background-color: #f3f4f6;
             color: transparent;
@@ -12630,12 +12626,10 @@
             transition: all 0.3s;
             border: 2px dashed #d1d5db;
         }
-        
         .mask-box:hover {
             background-color: #e5e7eb;
             border-color: #9ca3af;
         }
-
         .mask-box::after {
             content: "👆 点击查看答案";
             position: absolute;
@@ -12647,36 +12641,26 @@
             text-shadow: none;
             font-size: 0.9rem;
         }
-
-        /* 答案显形后的样式 */
         .revealed {
-            background-color: #ecfdf5; /* 淡淡的绿色背景 */
+            background-color: #ecfdf5;
             color: inherit;
             text-shadow: none;
             user-select: text;
             cursor: auto;
             border: 1px solid #10b981;
         }
-        .revealed::after {
-            content: "";
+        .revealed::after { content: ""; }
+
+        /* 移动端侧边栏遮罩 */
+        .sidebar-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
         }
 
-        /* 侧边栏滚动条美化 */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1; 
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1; 
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8; 
-        }
+        /* 滚动条美化 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 
-        /* Markdown 内容样式微调 */
         .md-content blockquote {
             border-left: 4px solid #3b82f6;
             padding-left: 1rem;
@@ -12686,192 +12670,218 @@
             margin-top: 0.5rem;
             border-radius: 0 4px 4px 0;
         }
-        .md-content a {
-            color: #2563eb;
-            text-decoration: underline;
-        }
+        .md-content a { color: #2563eb; text-decoration: underline; }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 h-screen overflow-hidden">
+<body class="bg-gray-100 text-gray-800 h-screen flex flex-col overflow-hidden">
 
-    <div id="app" class="flex h-full flex-col md:flex-row">
+    <div id="app" class="flex-1 flex flex-col h-full relative">
         
-        <!-- 左侧：导航与搜索 -->
-        <aside class="w-full md:w-80 bg-white shadow-lg flex flex-col z-20">
-            <!-- 搜索框 -->
-            <div class="p-4 border-b">
-                <h1 class="text-xl font-bold mb-3 text-indigo-600">题库刷题助手</h1>
-                <input 
-                    v-model="searchText" 
-                    type="text" 
-                    placeholder="输入关键词搜索 (如: 生产力)"
-                    class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                >
-            </div>
+        <!-- 移动端顶部导航栏 (仅手机显示) -->
+        <header class="md:hidden bg-white border-b p-4 flex justify-between items-center z-30 shadow-sm shrink-0">
+            <h1 class="font-bold text-lg text-indigo-600 truncate mr-2">
+                {{ currentSection.section || '题库助手' }}
+            </h1>
+            <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="text-gray-600 focus:outline-none p-1 border rounded">
+                <!-- 汉堡菜单图标 -->
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+        </header>
 
-            <!-- 目录树 -->
-            <div class="flex-1 overflow-y-auto p-2">
-                <div v-if="searchText" class="text-sm text-gray-500 p-2">
-                    正在搜索 "{{ searchText }}" ...
+        <div class="flex flex-1 overflow-hidden relative">
+            
+            <!-- 左侧侧边栏 (PC端常驻，手机端弹出) -->
+            <!-- 遮罩层 (手机端打开菜单时显示) -->
+            <div 
+                v-if="isMobileMenuOpen" 
+                @click="isMobileMenuOpen = false"
+                class="fixed inset-0 sidebar-overlay z-40 md:hidden"
+            ></div>
+
+            <!-- 侧边栏主体 -->
+            <aside 
+                class="fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-xl transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:w-80 md:shadow-none flex flex-col"
+                :class="isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'"
+            >
+                <!-- 侧边栏头部 -->
+                <div class="p-4 border-b bg-indigo-50">
+                    <h1 class="text-xl font-bold text-indigo-700 hidden md:block mb-3">题库刷题助手</h1>
+                    <input 
+                        v-model="searchText" 
+                        type="text" 
+                        placeholder="🔍 搜索关键词..."
+                        class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+                    >
                 </div>
-                
-                <div v-else>
-                    <div v-for="(sectionMap, chapter) in navTree" :key="chapter" class="mb-4">
-                        <div class="font-bold text-gray-700 px-2 py-1 bg-gray-50 rounded mb-1">
-                            {{ chapter }}
+
+                <!-- 侧边栏目录列表 -->
+                <div class="flex-1 overflow-y-auto p-2">
+                    <div v-if="searchText" class="text-sm text-gray-500 p-2">
+                        搜索结果...
+                    </div>
+                    
+                    <div v-else>
+                        <div v-for="(sectionMap, chapter) in navTree" :key="chapter" class="mb-4">
+                            <!-- 章节标题 -->
+                            <div class="font-bold text-gray-800 px-2 py-1.5 bg-gray-100 rounded mb-1 text-sm select-none">
+                                {{ chapter }}
+                            </div>
+                            <!-- 知识点列表 -->
+                            <ul class="ml-1 space-y-0.5 border-l-2 border-gray-200 pl-1">
+                                <li 
+                                    v-for="(count, section) in sectionMap" 
+                                    :key="section"
+                                    @click="selectSection(chapter, section)"
+                                    class="cursor-pointer px-3 py-2 rounded text-sm hover:bg-indigo-50 transition flex justify-between items-center group"
+                                    :class="{'bg-indigo-100 text-indigo-700 font-medium': isCurrent(chapter, section)}"
+                                >
+                                    <span class="truncate pr-2 group-hover:text-indigo-600">{{ section }}</span>
+                                    <span class="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full min-w-[1.5rem] text-center">{{ count }}</span>
+                                </li>
+                            </ul>
                         </div>
-                        <ul class="ml-2 space-y-1">
-                            <li 
-                                v-for="(count, section) in sectionMap" 
-                                :key="section"
-                                @click="currentSection = {chapter, section}"
-                                class="cursor-pointer px-3 py-2 rounded text-sm hover:bg-indigo-50 transition flex justify-between items-center"
-                                :class="{'bg-indigo-100 text-indigo-700 font-medium': isCurrent(chapter, section)}"
-                            >
-                                <span class="truncate pr-2">{{ section }}</span>
-                                <span class="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{{ count }}</span>
-                            </li>
-                        </ul>
                     </div>
                 </div>
-            </div>
-            
-            <!-- 底部控制栏 -->
-            <div class="p-4 border-t bg-gray-50 flex items-center justify-between text-sm">
-                <span class="font-bold">当前模式：</span>
-                <div class="flex bg-white rounded-lg border p-1">
-                    <button 
-                        @click="setMode('study')"
-                        class="px-3 py-1 rounded transition"
-                        :class="mode === 'study' ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 hover:bg-gray-100'"
-                    >
-                        背题
-                    </button>
-                    <button 
-                        @click="setMode('quiz')"
-                        class="px-3 py-1 rounded transition"
-                        :class="mode === 'quiz' ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 hover:bg-gray-100'"
-                    >
-                        自测
-                    </button>
-                </div>
-            </div>
-        </aside>
 
-        <!-- 右侧：题目列表 -->
-        <main class="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-8 scroll-smooth" ref="mainScroll">
-            
-            <div class="max-w-3xl mx-auto">
-                <!-- 顶部标题 -->
-                <div class="mb-6 flex justify-between items-end border-b pb-2">
-                    <div>
-                        <h2 class="text-2xl font-bold text-gray-800">
-                            {{ searchText ? '搜索结果' : (currentSection.section || '请选择章节') }}
+                <!-- 底部模式切换 -->
+                <div class="p-4 border-t bg-gray-50 flex items-center justify-between text-sm shrink-0">
+                    <span class="font-bold text-gray-600">模式：</span>
+                    <div class="flex bg-white rounded-lg border p-1 shadow-sm">
+                        <button 
+                            @click="setMode('study')"
+                            class="px-3 py-1.5 rounded transition text-xs font-medium"
+                            :class="mode === 'study' ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 hover:bg-gray-100'"
+                        >
+                            背题
+                        </button>
+                        <button 
+                            @click="setMode('quiz')"
+                            class="px-3 py-1.5 rounded transition text-xs font-medium"
+                            :class="mode === 'quiz' ? 'bg-indigo-600 text-white shadow' : 'text-gray-500 hover:bg-gray-100'"
+                        >
+                            自测
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 右侧主内容区域 -->
+            <main class="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-8 w-full scroll-smooth" ref="mainScroll">
+                <div class="max-w-3xl mx-auto pb-10">
+                    
+                    <!-- 标题栏 -->
+                    <div class="mb-6 border-b pb-4">
+                        <h2 class="text-xl md:text-2xl font-bold text-gray-900 leading-tight">
+                            {{ searchText ? '🔍 搜索结果: ' + searchText : (currentSection.section || '👋 请在左侧选择章节') }}
                         </h2>
-                        <p class="text-sm text-gray-500 mt-1" v-if="!searchText && currentSection.chapter">
-                            所属章节：{{ currentSection.chapter }}
-                        </p>
-                    </div>
-                    <div class="text-sm text-gray-500">
-                        共 {{ displayQuestions.length }} 题
-                    </div>
-                </div>
-
-                <!-- 题目卡片列表 -->
-                <div v-if="displayQuestions.length === 0" class="text-center py-20 text-gray-400">
-                    没有找到题目，请尝试其他关键词或点击左侧目录。
-                </div>
-
-                <div 
-                    v-for="(q, index) in displayQuestions" 
-                    :key="index"
-                    class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 transition hover:shadow-md"
-                >
-                    <!-- 题干 -->
-                    <div class="mb-4">
-                        <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded mr-2 align-middle">
-                            {{ index + 1 }}
-                        </span>
-                        <span class="text-lg font-medium text-gray-900 align-middle">
-                            {{ q.title }}
-                        </span>
-                    </div>
-
-                    <!-- 选项 -->
-                    <div class="space-y-2 mb-6 pl-2">
-                        <div v-for="opt in q.options" :key="opt" class="text-gray-700 hover:text-indigo-600 cursor-default">
-                            {{ opt }}
+                        <div class="flex items-center justify-between mt-2 text-sm text-gray-500">
+                            <span v-if="!searchText && currentSection.chapter">{{ currentSection.chapter }}</span>
+                            <span class="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded">共 {{ displayQuestions.length }} 题</span>
                         </div>
                     </div>
 
-                    <!-- 交互区域：答案与解析 -->
+                    <!-- 列表 -->
+                    <div v-if="displayQuestions.length === 0" class="text-center py-20 text-gray-400 flex flex-col items-center">
+                        <svg class="w-16 h-16 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <p>没有找到相关题目，请尝试其他章节或关键词。</p>
+                    </div>
+
                     <div 
-                        class="rounded-lg p-4 transition-all duration-300"
-                        :class="shouldShowAnswer(q) ? 'revealed' : 'mask-box'"
-                        @click="revealAnswer(q)"
+                        v-for="(q, index) in displayQuestions" 
+                        :key="index"
+                        class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 md:p-6 mb-6 transition hover:shadow-md"
                     >
-                        <!-- 只有在显示状态下才渲染内容，防止偷看DOM -->
-                        <div v-if="shouldShowAnswer(q)">
-                            <div class="flex items-center mb-2">
-                                <span class="font-bold mr-2">正确答案：</span>
-                                <span class="text-xl font-bold text-green-600">{{ q.correct_answer }}</span>
-                                <span v-if="q.difficulty" class="ml-auto text-xs text-gray-500 border px-2 py-0.5 rounded">
-                                    难度：{{ q.difficulty }}
-                                </span>
+                        <!-- 题干 -->
+                        <div class="mb-4">
+                            <span class="inline-flex items-center justify-center bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded mr-2 align-text-top h-6">
+                                {{ index + 1 }}
+                            </span>
+                            <span class="text-base md:text-lg font-medium text-gray-900 leading-relaxed">
+                                {{ q.title }}
+                            </span>
+                        </div>
+
+                        <!-- 选项 -->
+                        <div class="space-y-3 mb-6 pl-1 md:pl-2">
+                            <div 
+                                v-for="opt in q.options" 
+                                :key="opt" 
+                                class="flex items-start text-gray-700 hover:text-indigo-600 text-sm md:text-base"
+                            >
+                                {{ opt }}
+                            </div>
+                        </div>
+
+                        <!-- 答案区域 -->
+                        <div 
+                            class="rounded-lg p-4 transition-all duration-200"
+                            :class="shouldShowAnswer(q) ? 'revealed' : 'mask-box'"
+                            @click="revealAnswer(q)"
+                        >
+                            <div v-if="shouldShowAnswer(q)">
+                                <div class="flex items-center flex-wrap gap-2 mb-3">
+                                    <span class="font-bold text-gray-700">正确答案：</span>
+                                    <span class="text-xl font-bold text-green-600 mr-4">{{ q.correct_answer }}</span>
+                                    
+                                    <span v-if="q.difficulty" class="text-xs text-gray-500 bg-white border px-2 py-1 rounded ml-auto">
+                                        {{ q.difficulty }}
+                                    </span>
+                                </div>
+                                
+                                <div v-if="q.explanation" class="text-sm text-gray-600 border-t border-green-200 pt-3 mt-1">
+                                    <div class="font-bold mb-1 text-gray-700">解析：</div>
+                                    <div class="md-content leading-relaxed" v-html="renderMarkdown(q.explanation)"></div>
+                                </div>
                             </div>
                             
-                            <!-- 解析 (Markdown渲染) -->
-                            <div v-if="q.explanation" class="text-sm text-gray-600 border-t border-green-200 pt-2 mt-2">
-                                <div class="font-bold mb-1">解析：</div>
-                                <div class="md-content" v-html="renderMarkdown(q.explanation)"></div>
-                            </div>
+                            <!-- 占位防止高度塌陷严重 -->
+                            <div v-else class="h-12 flex items-center justify-center"></div>
                         </div>
-                        
-                        <!-- 占位符，保持高度防止抖动 (可选) -->
-                        <div v-else class="h-16"></div>
                     </div>
+
+                    <!-- 底部提示 -->
+                    <div v-if="displayQuestions.length > 0" class="text-center text-gray-400 text-sm mt-8 pb-8">
+                        - 到底啦 -
+                    </div>
+
                 </div>
-            </div>
-        </main>
+            </main>
+        </div>
     </div>
 
     <script>
-        const { createApp, ref, computed, reactive, onMounted, watch } = Vue;
+        const { createApp, ref, computed, onMounted, watch } = Vue;
 
         createApp({
             setup() {
-                // 1. 数据状态
                 const questions = ref([]);
                 const searchText = ref("");
-                const mode = ref("quiz"); // 默认模式：'study' (背题) 或 'quiz' (自测)
-                
-                // 记录用户在自测模式下手动点开了哪些题 (存的是题目对象的引用或唯一标识)
-                // 这里简单起见，利用对象的响应式特性，直接给题目对象加一个临时属性 _revealed
-                
-                // 当前选中的章节
-                const currentSection = reactive({ chapter: "", section: "" });
-                
+                const mode = ref("quiz");
+                // 使用 ref 而不是 reactive，修复响应式更新问题
+                const currentSection = ref({ chapter: "", section: "" });
                 const mainScroll = ref(null);
+                const isMobileMenuOpen = ref(false); // 控制手机端菜单开关
 
-                // 2. 初始化加载数据
                 onMounted(() => {
                     if (window.QUESTION_DATA) {
                         questions.value = window.QUESTION_DATA.map(q => ({
                             ...q,
-                            _revealed: false // 运行时状态
+                            _revealed: false 
                         }));
                         
-                        // 默认选中第一个章节
                         if (questions.value.length > 0) {
-                            currentSection.chapter = questions.value[0].chapter;
-                            currentSection.section = questions.value[0].section;
+                            currentSection.value = {
+                                chapter: questions.value[0].chapter,
+                                section: questions.value[0].section
+                            };
                         }
                     } else {
-                        alert("未找到数据文件 data.js，请检查文件路径。");
+                        console.error("未找到数据 window.QUESTION_DATA");
                     }
                 });
 
-                // 3. 计算属性：导航树结构 { Chapter: { Section: Count } }
                 const navTree = computed(() => {
                     const tree = {};
                     questions.value.forEach(q => {
@@ -12882,61 +12892,58 @@
                     return tree;
                 });
 
-                // 4. 计算属性：当前显示的题目列表
                 const displayQuestions = computed(() => {
-                    // 如果有搜索词，全局搜索
                     if (searchText.value.trim()) {
                         const lowerKey = searchText.value.toLowerCase();
                         return questions.value.filter(q => 
                             q.search_text && q.search_text.includes(lowerKey)
                         );
                     }
-                    // 否则按章节筛选
+                    // 注意这里使用 currentSection.value
                     return questions.value.filter(q => 
-                        q.chapter === currentSection.chapter && 
-                        q.section === currentSection.section
+                        q.chapter === currentSection.value.chapter && 
+                        q.section === currentSection.value.section
                     );
                 });
 
-                // 5. 方法集
-                
-                // 判断侧边栏是否高亮
+                // 选择章节的方法
+                const selectSection = (chapter, section) => {
+                    // 更新 ref 的值
+                    currentSection.value = { chapter, section };
+                    searchText.value = ""; // 清空搜索
+                    isMobileMenuOpen.value = false; // 手机端选择后自动关闭菜单
+                    
+                    // 滚动回顶部
+                    if (mainScroll.value) mainScroll.value.scrollTop = 0;
+                };
+
                 const isCurrent = (chapter, section) => {
-                    return currentSection.chapter === chapter && currentSection.section === section;
+                    return currentSection.value.chapter === chapter && currentSection.value.section === section;
                 };
 
-                // 判断是否应该显示答案
                 const shouldShowAnswer = (q) => {
-                    if (mode.value === 'study') return true; // 背题模式全显示
-                    return q._revealed; // 自测模式看是否有点击过
+                    if (mode.value === 'study') return true;
+                    return q._revealed;
                 };
 
-                // 点击题目蒙版
                 const revealAnswer = (q) => {
                     if (mode.value === 'quiz') {
                         q._revealed = true;
                     }
                 };
 
-                // 切换模式
                 const setMode = (newMode) => {
                     mode.value = newMode;
-                    // 切换模式时，重置所有题目的已读状态（可选，看个人习惯）
                     if (newMode === 'quiz') {
                         questions.value.forEach(q => q._revealed = false);
                     }
                 };
 
-                // 渲染 Markdown
                 const renderMarkdown = (text) => {
                     if (!text) return "";
+                    // 简单配置 marked
                     return marked.parse(text);
                 };
-
-                // 监听筛选变化，自动回滚顶部
-                watch([() => currentSection.section, searchText], () => {
-                    if (mainScroll.value) mainScroll.value.scrollTop = 0;
-                });
 
                 return {
                     questions,
@@ -12945,12 +12952,14 @@
                     navTree,
                     currentSection,
                     displayQuestions,
+                    mainScroll,
+                    isMobileMenuOpen, // 导出给模板
+                    selectSection,    // 导出方法
                     isCurrent,
                     shouldShowAnswer,
                     revealAnswer,
                     setMode,
-                    renderMarkdown,
-                    mainScroll
+                    renderMarkdown
                 };
             }
         }).mount('#app');
